@@ -51,7 +51,7 @@ cv::Mat solveLeastSquares(const cv::Mat& pts2d, const cv::Mat& pts3d) {
 }
 
 // Solve system of linear equations using singular value decomposition
-Eigen::MatrixXf calib::solveSVD(const Eigen::MatrixXf& pts2d, const Eigen::MatrixXf& pts3d) {
+Eigen::MatrixXf solveSVD(const Eigen::MatrixXf& pts2d, const Eigen::MatrixXf& pts3d) {
     assert(pts2d.cols() == pts3d.cols() && pts2d.rows() == 2 && pts3d.rows() == 3);
     // Set up A and b matrices.
     const size_t rows = pts3d.cols() * 2;
@@ -174,6 +174,8 @@ void runProblem1a() {
     }
 }
 
+using namespace std;
+
 int main() {
     Eigen::MatrixXf pts2d(6,2), pts3d(6,3);
     pts3d <<
@@ -191,6 +193,13 @@ int main() {
         1.0682, 0.0699,
         0.6077, -0.0771,
         1.2543, -0.6454;
+
+
+    std::cout <<pts3d.rows()  << "," << pts3d.cols() << std::endl;
+    std::cout <<pts2d.rows()  << "," << pts2d.cols() << std::endl;
+
+    std::cout << pts3d << std::endl;
+    std::cout << pts2d << endl;
 
     assert(pts2d.cols() == pts3d.cols() && pts2d.rows() == 2 && pts3d.rows() == 3);
     // Set up A and b matrices.
