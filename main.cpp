@@ -2,27 +2,11 @@
 
 #include <Eigen/Dense>
 #include <opencv2/core/core.hpp>
-
 #include <opencv2/core/eigen.hpp>
 #include <iostream>
 
-namespace calib {
 // Solve system of linear equations using least squares normal equations
-    Eigen::MatrixXf solveLeastSquares(const Eigen::MatrixXf& pts2d, const Eigen::MatrixXf& pts3d);
-
-// Overload of the above function using cv::Mat instead of Eigen
-    cv::Mat solveLeastSquares(const cv::Mat& pts2d, const cv::Mat& pts3d);
-
-// Solve system of linear equations using singular value decomposition
-    Eigen::MatrixXf solveSVD(const Eigen::MatrixXf& pts2d, const Eigen::MatrixXf& pts3d);
-
-// Overload of the above function using cv::Mat instead of Eigen
-    cv::Mat solveSVD(const cv::Mat& pts2d, const cv::Mat& pts3d);
-}; //
-
-
-
-Eigen::MatrixXf calib::solveLeastSquares(const Eigen::MatrixXf& pts2d,
+Eigen::MatrixXf solveLeastSquares(const Eigen::MatrixXf& pts2d,
                                          const Eigen::MatrixXf& pts3d) {
     assert(pts2d.cols() == pts3d.cols() && pts2d.rows() == 2 && pts3d.rows() == 3);
     // Set up A and b matrices.
@@ -52,7 +36,9 @@ Eigen::MatrixXf calib::solveLeastSquares(const Eigen::MatrixXf& pts2d,
     return sol;
 }
 
-cv::Mat calib::solveLeastSquares(const cv::Mat& pts2d, const cv::Mat& pts3d) {
+// Overload of the above function using cv::Mat instead of Eigen
+
+cv::Mat solveLeastSquares(const cv::Mat& pts2d, const cv::Mat& pts3d) {
     // Wrap OpenCV matrices in Eigen::Map
     Eigen::MatrixXf eigenPts2d, eigenPts3d;
     cv::cv2eigen(pts2d, eigenPts2d);
@@ -64,6 +50,7 @@ cv::Mat calib::solveLeastSquares(const cv::Mat& pts2d, const cv::Mat& pts3d) {
     return cvSol;
 }
 
+// Solve system of linear equations using singular value decomposition
 Eigen::MatrixXf calib::solveSVD(const Eigen::MatrixXf& pts2d, const Eigen::MatrixXf& pts3d) {
     assert(pts2d.cols() == pts3d.cols() && pts2d.rows() == 2 && pts3d.rows() == 3);
     // Set up A and b matrices.
@@ -90,7 +77,8 @@ Eigen::MatrixXf calib::solveSVD(const Eigen::MatrixXf& pts2d, const Eigen::Matri
     return smallest;
 }
 
-cv::Mat calib::solveSVD(const cv::Mat& pts2d, const cv::Mat& pts3d) {
+// Overload of the above function using cv::Mat instead of Eigen
+cv::Mat solveSVD(const cv::Mat& pts2d, const cv::Mat& pts3d) {
     // Convert OpenCV matrices to Eigen matrices
     Eigen::MatrixXf eigenPts2d, eigenPts3d;
     cv::cv2eigen(pts2d, eigenPts2d);
@@ -116,7 +104,23 @@ cv::Mat project3D(const cv::Mat& projMat, const cv::Mat& pt3d) {
 }
 
 void runProblem1a() {
-    cv::Mat _picA, _picB, _picANorm, _pts3D, _pts3DNorm;
+    cv::Mat _pts3DNorm = (cv::Mat_<float>(6,3) <<
+            1.5706,-0.1490,0.2598,
+            -1.5282, 0.9695, 0.3802,
+            -0.6821, 1.2856, 0.4078,
+            0.4124, -1.0201, -0.0915,
+            1.2095, 0.2812, -0.1280,
+            0.8819, -0.8481, 0.5255);
+
+    cv::Mat _picANorm = (cv::Mat_<float>(6,2) <<
+                                              1.0486, -0.3645,
+                                              -1.6851, -0.4004,
+                                              -0.9437, -0.4200,
+                                              1.0682, 0.0699,
+                                              0.6077, -0.0771,
+                                              1.2543, -0.6454);
+
+    cv::Mat _picA, _picB, _pts3D;
 
     // Get the last 3D normalized point so we can check our m matrix later
     cv::Mat lastPt3D = _pts3DNorm.col(_pts3DNorm.cols - 1);
@@ -129,7 +133,7 @@ void runProblem1a() {
 
     // Compute projection matrix
     {
-        auto sol = calib::solveLeastSquares(_picANorm, _pts3DNorm);
+        auto sol = solveLeastSquares(_picANorm, _pts3DNorm);
         cv::Mat params = sol.reshape(0, 3);
 
         cv::Mat projection = project3D(params, lastPt3D);
@@ -149,7 +153,7 @@ void runProblem1a() {
     }
 
     {
-        auto sol = calib::solveSVD(_picANorm, _pts3DNorm);
+        auto sol = solveSVD(_picANorm, _pts3DNorm);
         cv::Mat params = sol.reshape(0, 3);
 
         cv::Mat projection = project3D(params, lastPt3D);
@@ -171,5 +175,53 @@ void runProblem1a() {
 }
 
 int main() {
-    runProblem1a();
+    Eigen::MatrixXf pts2d(6,2), pts3d(6,3);
+    pts3d <<
+        1.5706,-0.1490,0.2598,
+        -1.5282, 0.9695, 0.3802,
+        -0.6821, 1.2856, 0.4078,
+        0.4124, -1.0201, -0.0915,
+        1.2095, 0.2812, -0.1280,
+        0.8819, -0.8481, 0.5255;
+
+    pts2d <<
+        1.0486, -0.3645,
+        -1.6851, -0.4004,
+        -0.9437, -0.4200,
+        1.0682, 0.0699,
+        0.6077, -0.0771,
+        1.2543, -0.6454;
+
+    assert(pts2d.cols() == pts3d.cols() && pts2d.rows() == 2 && pts3d.rows() == 3);
+    // Set up A and b matrices.
+    const size_t rows = pts3d.cols() * 2;
+    const size_t cols = 11;
+    Eigen::MatrixXf A(rows, cols);
+    Eigen::MatrixXf b(rows, 1);
+
+    // Build A and b matrices
+    for (int i = 0; i < rows; i += 2) {
+        float X = pts3d(0, i / 2);
+        float Y = pts3d(1, i / 2);
+        float Z = pts3d(2, i / 2);
+        float x = pts2d(0, i / 2);
+        float y = pts2d(1, i / 2);
+        A.row(i) << X, Y, Z, 1, Eigen::MatrixXf::Zero(1, 4), -x * X, -x * Y, -x * Z;
+        A.row(i + 1) << Eigen::MatrixXf::Zero(1, 4), X, Y, Z, 1, -y * X, -y * Y, -y * Z;
+        b.row(i) << x;
+        b.row(i + 1) << y;
+    }
+
+    // Solve least squares
+    Eigen::MatrixXf sol = (A.transpose() * A).ldlt().solve(A.transpose() * b);
+    // Append a 1 to the end since scale is constant
+    sol.conservativeResize(sol.rows() + 1, sol.cols());
+    sol(sol.rows() - 1, 0) = 1;
+
+
+    auto eigenSol = solveLeastSquares(pts2d, pts3d);
+    cv::Mat cvSol;
+    cv::eigen2cv(eigenSol, cvSol);
+
+ //   runProblem1a();
 }
