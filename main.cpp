@@ -230,7 +230,7 @@ int main() {
     cv::Mat cvSol;
     cv::eigen2cv(sol, cvSol);
     cv::Mat projMat = cvSol.reshape(0, 3);
-    std::cout << projMat << endl;
+    std::cout << "projMat:" << projMat << endl;
 
 
     cv::Mat cv3dpts, cv2dpts;
@@ -252,6 +252,7 @@ int main() {
 
     // No assert here because matrix multiplication in OpenCV already has one
     cv::Mat projected = projMat * homogenousPt3D;
+    std::cout << projected << endl;
 
     // Last value in projected is the homogeneous value - divide by this to scale correctly to an
     // inhomogeneous point
@@ -259,8 +260,12 @@ int main() {
         float s = projected.at<float>(2, col);
         projected.col(col) = projected.col(col) / s;
     }
+    std::cout << "projected:" << projected << endl;
+
+    cv::Mat projected2d = projected.rowRange(0, 1);
+    std::cout << "projected2d:" << projected2d << endl;
 
     // Compute residual
-    double residual = cv::norm(projected.rowRange(0, 2), lastPt2D);
-    std::cout << residual << endl;
+    double residual = cv::norm(projected2d, lastPt2D);
+    std::cout << "residual:" << residual << endl;
 }
