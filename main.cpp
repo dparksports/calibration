@@ -198,23 +198,23 @@ int main() {
     std::cout <<pts3d.rows()  << "," << pts3d.cols() << std::endl;
     std::cout <<pts2d.rows()  << "," << pts2d.cols() << std::endl;
 
-    std::cout << pts3d << std::endl;
+    std::cout << pts3d << endl;
     std::cout << pts2d << endl;
 
-    assert(pts2d.cols() == pts3d.cols() && pts2d.rows() == 2 && pts3d.rows() == 3);
+    assert(pts2d.rows() == pts3d.rows() && pts2d.cols() == 2 && pts3d.cols() == 3);
     // Set up A and b matrices.
-    const size_t rows = pts3d.cols() * 2;
+    const size_t rows = pts3d.rows() * 2;
     const size_t cols = 11;
     Eigen::MatrixXf A(rows, cols);
     Eigen::MatrixXf b(rows, 1);
 
     // Build A and b matrices
     for (int i = 0; i < rows; i += 2) {
-        float X = pts3d(0, i / 2);
-        float Y = pts3d(1, i / 2);
-        float Z = pts3d(2, i / 2);
-        float x = pts2d(0, i / 2);
-        float y = pts2d(1, i / 2);
+        float X = pts3d(i / 2, 0);
+        float Y = pts3d(i / 2, 1);
+        float Z = pts3d(i / 2, 2);
+        float x = pts2d(i / 2, 0);
+        float y = pts2d(i / 2, 1);
         A.row(i) << X, Y, Z, 1, Eigen::MatrixXf::Zero(1, 4), -x * X, -x * Y, -x * Z;
         A.row(i + 1) << Eigen::MatrixXf::Zero(1, 4), X, Y, Z, 1, -y * X, -y * Y, -y * Z;
         b.row(i) << x;
@@ -227,10 +227,23 @@ int main() {
     sol.conservativeResize(sol.rows() + 1, sol.cols());
     sol(sol.rows() - 1, 0) = 1;
 
-
-    auto eigenSol = solveLeastSquares(pts2d, pts3d);
     cv::Mat cvSol;
-    cv::eigen2cv(eigenSol, cvSol);
+    cv::eigen2cv(sol, cvSol);
+    cv::Mat projMat = cvSol.reshape(0, 3);
 
+    cv::Mat lastPt3D = pts3d.row(0);
+    lastPt3D.push_back(1.f);
+
+    // No assert here because matrix multiplication in OpenCV already has one
+    cv::Mat projected = projMat * lastPt3D;
+    
+    // Last value in projected is the homogeneous value - divide by this to scale correctly to an
+    // inhomogeneous point
+    for (size_t col = 0; col < projected.cols; col++) {
+        float s = projected.at<float>(2, col);
+        projected.col(col) = projected.col(col) / s;
+    }
+
+    cv::Mat projection = project3D(projMat, lastPt3D);
  //   runProblem1a();
 }
