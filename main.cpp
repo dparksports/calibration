@@ -230,6 +230,8 @@ int main() {
     cv::Mat cvSol;
     cv::eigen2cv(sol, cvSol);
     cv::Mat projMat = cvSol.reshape(0, 3);
+    std::cout << projMat << endl;
+
 
     cv::Mat cv3dpts, cv2dpts;
     cv::eigen2cv(pts3d, cv3dpts);
@@ -237,11 +239,19 @@ int main() {
 
     cv::Mat lastPt2D = cv2dpts.row(0);
     cv::Mat lastPt3D = cv3dpts.row(0);
-    lastPt3D.push_back(1.f);
+    std::cout << lastPt2D << endl;
+    std::cout << lastPt3D << endl;
+
+    cv::Mat homogenousPt3D;
+    homogenousPt3D.push_back(lastPt3D.at<float>(0,0));
+    homogenousPt3D.push_back(lastPt3D.at<float>(0,1));
+    homogenousPt3D.push_back(lastPt3D.at<float>(0,2));
+    homogenousPt3D.push_back(1.f);
+    std::cout << homogenousPt3D << endl;
 
 
     // No assert here because matrix multiplication in OpenCV already has one
-    cv::Mat projected = projMat * lastPt3D;
+    cv::Mat projected = projMat * homogenousPt3D;
 
     // Last value in projected is the homogeneous value - divide by this to scale correctly to an
     // inhomogeneous point
