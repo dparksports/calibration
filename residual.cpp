@@ -174,7 +174,42 @@ void runProblem1a() {
     }
 }
 
+#include <iostream>
+#include <chrono>
+#include <Eigen/Core>
+#include <Eigen/Cholesky>
 using namespace std;
+using namespace std::chrono;
+using namespace Eigen;
+using namespace std;
+
+Matrix<double, 1, 4> mrdivide_qr(const Matrix<double, 4, 3> &A,
+                                 const Matrix<double, 1, 3> &B){
+    return A.transpose().colPivHouseholderQr().solve(B.transpose());
+}
+
+Matrix<double, 1, 4> mrdivide_ldlt(const Matrix<double, 4, 3> &A, const Matrix<double, 1, 3> &B){
+    return (A*A.transpose()).ldlt().solve(A*B.transpose());
+}
+
+void compare() {
+    Matrix<double, 4, 3>  M_eig;
+    M_eig << 761.544, 0, 0,
+            0, 761.544, 0,
+            639.5, 399.5, 1.0,
+            3.762513283904080e+06, 1.824431013104484e+06, 9.837714402800992e+03;
+
+    Matrix<double, 1, 3> pixelCoords_eig;
+    pixelCoords_eig << 457, 520, 1;
+
+    Matrix<double, 1, 4> worldCoords_eig;
+
+    worldCoords_eig = mrdivide_qr(M_eig, pixelCoords_eig);
+    std::cout << "world coords using QR:   " << worldCoords_eig << std::endl;
+
+    worldCoords_eig = mrdivide_ldlt(M_eig, pixelCoords_eig);
+    std::cout << "world coords using LDLT: " << worldCoords_eig << std::endl;
+}
 
 int main() {
     Eigen::MatrixXf pts2d(6,2), pts3d(6,3);
@@ -226,12 +261,14 @@ int main() {
     // Append a 1 to the end since scale is constant
     leastsquare.conservativeResize(leastsquare.rows() + 1, leastsquare.cols());
     leastsquare(leastsquare.rows() - 1, 0) = 1;
+    std::cout << "leastsquare:" << leastsquare << endl;
+    std::cout << leastsquare.size()  << endl;
 
     cv::Mat leaseSquareCV;
     cv::eigen2cv(leastsquare, leaseSquareCV);
-    cv::Mat projMat = leaseSquareCV.reshape(0, 3);
-    std::cout << "projMat:" << projMat << endl;
-
+    cv::Mat projectionMatrix = leaseSquareCV.reshape(0, 3);
+    std::cout << "projectionMatrix:" << projectionMatrix << endl;
+    std::cout << projectionMatrix.size()  << endl;
 
     cv::Mat cv3dpts, cv2dpts;
     cv::eigen2cv(pts3d, cv3dpts);
@@ -251,7 +288,7 @@ int main() {
 
 
     // No assert here because matrix multiplication in OpenCV already has one
-    cv::Mat projected = projMat * homogenousPt3D;
+    cv::Mat projected = projectionMatrix * homogenousPt3D;
     std::cout << projected << endl;
 
     // Last value in projected is the homogeneous value - divide by this to scale correctly to an
@@ -273,4 +310,46 @@ int main() {
     // Compute residual
     double residual = cv::norm(projected2d, transposed2D);
     std::cout << "residual:" << residual << endl;
+
+    compare();
+
+    {
+        MatrixXf cov = MatrixXf::Random(4200, 4200);
+        cov = (cov + cov.transpose()) + 1000 * MatrixXf::Identity(4200, 4200);
+        VectorXf b = VectorXf::Random(4200), r1, r2;
+
+        r1 = b;
+        LLT<MatrixXf> llt;
+        auto start = high_resolution_clock::now();
+        llt.compute(cov);
+        if (llt.info() != Success)
+        {
+            cout << "Error on LLT!" << endl;
+            return 1;
+        }
+        auto middle = high_resolution_clock::now();
+        llt.solveInPlace(r1);
+        auto stop = high_resolution_clock::now();
+        cout << "LLT decomposition & solving in  " << duration_cast<milliseconds>(middle - start).count()
+             << " + " << duration_cast<milliseconds>(stop - middle).count() << " ms." << endl;
+
+        r2 = b;
+        LDLT<MatrixXf> ldlt;
+        start = high_resolution_clock::now();
+        ldlt.compute(cov);
+        if (ldlt.info() != Success)
+        {
+            cout << "Error on LDLT!" << endl;
+            return 1;
+        }
+        middle = high_resolution_clock::now();
+        ldlt.solveInPlace(r2);
+        stop = high_resolution_clock::now();
+        cout << "LDLT decomposition & solving in " << duration_cast<milliseconds>(stop - start).count()
+             << " + " << duration_cast<milliseconds>(stop - middle).count() << " ms." << endl;
+
+        cout << "Total result difference: " << (r2 - r1).cwiseAbs().sum() << endl;
+
+    }
+    return 0;
 }
