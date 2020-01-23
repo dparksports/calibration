@@ -147,7 +147,7 @@ void runProblem1a() {
 //        logger->info("Calibration parameters (using normal least squares):\n{}\nProjected "
 //                     "3D point\n{}\nto 2D point\n{}\nResidual = {}",
 //                     FormattedMat(params),
-//                     lastPt3D_T,
+//                     lasresidualtPt3D_T,
 //                     projection_T,
 //                     residual);
     }
@@ -239,7 +239,7 @@ int main() {
     assert(pts2d.rows() == pts3d.rows() && pts2d.cols() == 2 && pts3d.cols() == 3);
     // Set up A and b matrices.
     const size_t rows = pts3d.rows() * 2;
-    const size_t cols = 11;
+    size_t cols = 11;
     Eigen::MatrixXf A(rows, cols);
     Eigen::MatrixXf b(rows, 1);
 
@@ -255,6 +255,38 @@ int main() {
         b.row(i) << x;
         b.row(i + 1) << y;
     }
+
+    cols = 12;
+    Eigen::MatrixXf ASVD(rows, cols);
+    // Build A and b matrices
+    for (int i = 0; i < rows; i += 2) {
+        float X = pts3d(i / 2, 0);
+        float Y = pts3d(i / 2, 1);
+        float Z = pts3d(i / 2, 2);
+        float x = pts2d(i / 2, 0);
+        float y = pts2d(i / 2, 1);
+        ASVD.row(i) << X, Y, Z, 1, Eigen::MatrixXf::Zero(1, 4), -x * X, -x * Y, -x * Z, -x;
+        ASVD.row(i + 1) << Eigen::MatrixXf::Zero(1, 4), X, Y, Z, 1, -y * X, -y * Y, -y * Z, -y;
+    }
+
+    // Compute the orthogonal matrix of eigenvectors of A_T*A
+    Eigen::MatrixXf eigenvectors = ASVD.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).matrixV();
+    std::cout << "eigenvectors:" << eigenvectors << endl;
+    std::cout << "eigenvectors size:" << eigenvectors.size()  << endl;
+
+    // Get the eigenvector with the smallest eigenvalue (the last column of the V matrix)
+    Eigen::MatrixXf smallest = eigenvectors.col(eigenvectors.cols() - 1);
+    std::cout << "smallest:" << smallest << endl;
+    std::cout << "smallest size:" << smallest.size()  << endl;
+
+    cv::Mat cvSol;
+    cv::eigen2cv(smallest, cvSol);
+    std::cout << "cvSol:" << cvSol << endl;
+    std::cout << "cvSol size:" << cvSol.size()  << endl;
+
+    cv::Mat projectionMatrixSVD = cvSol.reshape(0, 3);
+    std::cout << "projectionMatrixSVD:" << projectionMatrixSVD << endl;
+    std::cout << "projectionMatrixSVD size:" << projectionMatrixSVD.size()  << endl;
 
     // Solve least squares
     Eigen::MatrixXf leastsquare = (A.transpose() * A).ldlt().solve(A.transpose() * b);
@@ -293,6 +325,8 @@ int main() {
     // No assert here because matrix multiplication in OpenCV already has one
     cv::Mat projected = projectionMatrix * homogenousPt3D;
     std::cout << "projected 2D calculated:" << projected << endl;
+    cv::Mat projectedSVD = projectionMatrixSVD * homogenousPt3D;
+    std::cout << "projectedSVD 2D calculated:" << projectedSVD << endl;
 
     // Last value in projected is the homogeneous value - divide by this to scale correctly to an
     // inhomogeneous point
@@ -302,9 +336,21 @@ int main() {
     }
     std::cout << "projected 2D normalized:" << projected << endl;
 
+    for (size_t col = 0; col < projectedSVD.cols; col++) {
+        float s = projectedSVD.at<float>(2, col);
+        projectedSVD.col(col) = projectedSVD.col(col) / s;
+    }
+    std::cout << "projectedSVD 2D normalized:" << projectedSVD << endl;
+
+
     cv::Mat projected2d = projected.rowRange(0, 2);
     std::cout << "projected2d:" << projected2d << endl;
     std::cout << projected2d.size()  << endl;
+
+    cv::Mat projected2dSVD = projectedSVD.rowRange(0, 2);
+    std::cout << "projected2dSVD:" << projected2dSVD << endl;
+    std::cout << projected2dSVD.size()  << endl;
+
 
     cv::Mat transposed2D =  lastPt2D.t();
     std::cout << "sample lastPt2D:" << transposed2D << endl;
@@ -313,6 +359,9 @@ int main() {
     // Compute residualGPS
     double residual = cv::norm(projected2d, transposed2D);
     std::cout << "residual:" << residual << endl;
+
+    double residualSVD = cv::norm(projected2dSVD, transposed2D);
+    std::cout << "residualSVD:" << residualSVD << endl;
 
     compare();
 
