@@ -183,12 +183,12 @@ using namespace std::chrono;
 using namespace Eigen;
 using namespace std;
 
-Matrix<double, 1, 4> mrdivide_qr(const Matrix<double, 4, 3> &A,
+Matrix<double, 1, 4> solve_qr(const Matrix<double, 4, 3> &A,
                                  const Matrix<double, 1, 3> &B){
     return A.transpose().colPivHouseholderQr().solve(B.transpose());
 }
 
-Matrix<double, 1, 4> mrdivide_ldlt(const Matrix<double, 4, 3> &A, const Matrix<double, 1, 3> &B){
+Matrix<double, 1, 4> solve_ldlt(const Matrix<double, 4, 3> &A, const Matrix<double, 1, 3> &B){
     return (A*A.transpose()).ldlt().solve(A*B.transpose());
 }
 
@@ -204,10 +204,10 @@ void compare() {
 
     Matrix<double, 1, 4> worldCoords_eig;
 
-    worldCoords_eig = mrdivide_qr(M_eig, pixelCoords_eig);
+    worldCoords_eig = solve_qr(M_eig, pixelCoords_eig);
     std::cout << "world coords using QR:   " << worldCoords_eig << std::endl;
 
-    worldCoords_eig = mrdivide_ldlt(M_eig, pixelCoords_eig);
+    worldCoords_eig = solve_ldlt(M_eig, pixelCoords_eig);
     std::cout << "world coords using LDLT: " << worldCoords_eig << std::endl;
 }
 
@@ -258,10 +258,13 @@ int main() {
 
     // Solve least squares
     Eigen::MatrixXf leastsquare = (A.transpose() * A).ldlt().solve(A.transpose() * b);
+    std::cout << "leastsquare:" << leastsquare << endl;
+    std::cout << "leastsquare size:" << leastsquare.size()  << endl;
+
     // Append a 1 to the end since scale is constant
     leastsquare.conservativeResize(leastsquare.rows() + 1, leastsquare.cols());
     leastsquare(leastsquare.rows() - 1, 0) = 1;
-    std::cout << "leastsquare:" << leastsquare << endl;
+    std::cout << "leastsquare resized:" << leastsquare << endl;
     std::cout << leastsquare.size()  << endl;
 
     cv::Mat leaseSquareCV;
@@ -276,20 +279,20 @@ int main() {
 
     cv::Mat lastPt2D = cv2dpts.row(0);
     cv::Mat lastPt3D = cv3dpts.row(0);
-    std::cout << lastPt2D << endl;
-    std::cout << lastPt3D << endl;
+    std::cout << "lastPt2D:" << lastPt2D << endl;
+    std::cout << "lastPt3D:" << lastPt3D << endl;
 
     cv::Mat homogenousPt3D;
     homogenousPt3D.push_back(lastPt3D.at<float>(0,0));
     homogenousPt3D.push_back(lastPt3D.at<float>(0,1));
     homogenousPt3D.push_back(lastPt3D.at<float>(0,2));
     homogenousPt3D.push_back(1.f);
-    std::cout << homogenousPt3D << endl;
+    std::cout << "homogenousPt3D:" << homogenousPt3D << endl;
 
 
     // No assert here because matrix multiplication in OpenCV already has one
     cv::Mat projected = projectionMatrix * homogenousPt3D;
-    std::cout << projected << endl;
+    std::cout << "projected 2D calculated:" << projected << endl;
 
     // Last value in projected is the homogeneous value - divide by this to scale correctly to an
     // inhomogeneous point
@@ -297,17 +300,17 @@ int main() {
         float s = projected.at<float>(2, col);
         projected.col(col) = projected.col(col) / s;
     }
-    std::cout << "projected:" << projected << endl;
+    std::cout << "projected 2D normalized:" << projected << endl;
 
     cv::Mat projected2d = projected.rowRange(0, 2);
     std::cout << "projected2d:" << projected2d << endl;
     std::cout << projected2d.size()  << endl;
 
     cv::Mat transposed2D =  lastPt2D.t();
-    std::cout << "lastPt2D:" << transposed2D << endl;
-    std::cout << transposed2D.size()  << endl;
+    std::cout << "sample lastPt2D:" << transposed2D << endl;
+    std::cout << "sample lastPt2D size:" << transposed2D.size()  << endl;
 
-    // Compute residual
+    // Compute residualGPS
     double residual = cv::norm(projected2d, transposed2D);
     std::cout << "residual:" << residual << endl;
 
