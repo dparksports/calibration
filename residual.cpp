@@ -7,7 +7,7 @@
 
 // Solve system of linear equations using least squares normal equations
 Eigen::MatrixXf solveLeastSquares(const Eigen::MatrixXf& pts2d,
-                                         const Eigen::MatrixXf& pts3d) {
+                                  const Eigen::MatrixXf& pts3d) {
     assert(pts2d.cols() == pts3d.cols() && pts2d.rows() == 2 && pts3d.rows() == 3);
     // Set up A and b matrices.
     const size_t rows = pts3d.cols() * 2;
@@ -105,7 +105,7 @@ cv::Mat project3D(const cv::Mat& projMat, const cv::Mat& pt3d) {
 
 void runProblem1a() {
     cv::Mat _pts3DNorm = (cv::Mat_<float>(6,3) <<
-            1.5706,-0.1490,0.2598,
+                                               1.5706,-0.1490,0.2598,
             -1.5282, 0.9695, 0.3802,
             -0.6821, 1.2856, 0.4078,
             0.4124, -1.0201, -0.0915,
@@ -114,11 +114,11 @@ void runProblem1a() {
 
     cv::Mat _picANorm = (cv::Mat_<float>(6,2) <<
                                               1.0486, -0.3645,
-                                              -1.6851, -0.4004,
-                                              -0.9437, -0.4200,
-                                              1.0682, 0.0699,
-                                              0.6077, -0.0771,
-                                              1.2543, -0.6454);
+            -1.6851, -0.4004,
+            -0.9437, -0.4200,
+            1.0682, 0.0699,
+            0.6077, -0.0771,
+            1.2543, -0.6454);
 
     cv::Mat _picA, _picB, _pts3D;
 
@@ -184,7 +184,7 @@ using namespace Eigen;
 using namespace std;
 
 Matrix<double, 1, 4> solve_qr(const Matrix<double, 4, 3> &A,
-                                 const Matrix<double, 1, 3> &B){
+                              const Matrix<double, 1, 3> &B){
     return A.transpose().colPivHouseholderQr().solve(B.transpose());
 }
 
@@ -214,20 +214,20 @@ void compare() {
 int main() {
     Eigen::MatrixXf pts2d(6,2), pts3d(6,3);
     pts3d <<
-        1.5706,-0.1490,0.2598,
-        -1.5282, 0.9695, 0.3802,
-        -0.6821, 1.2856, 0.4078,
-        0.4124, -1.0201, -0.0915,
-        1.2095, 0.2812, -0.1280,
-        0.8819, -0.8481, 0.5255;
+          1.5706,-0.1490,0.2598,
+            -1.5282, 0.9695, 0.3802,
+            -0.6821, 1.2856, 0.4078,
+            0.4124, -1.0201, -0.0915,
+            1.2095, 0.2812, -0.1280,
+            0.8819, -0.8481, 0.5255;
 
     pts2d <<
-        1.0486, -0.3645,
-        -1.6851, -0.4004,
-        -0.9437, -0.4200,
-        1.0682, 0.0699,
-        0.6077, -0.0771,
-        1.2543, -0.6454;
+          1.0486, -0.3645,
+            -1.6851, -0.4004,
+            -0.9437, -0.4200,
+            1.0682, 0.0699,
+            0.6077, -0.0771,
+            1.2543, -0.6454;
 
 
     std::cout <<pts3d.rows()  << "," << pts3d.cols() << std::endl;
@@ -305,6 +305,26 @@ int main() {
     std::cout << "projectionMatrix:" << projectionMatrix << endl;
     std::cout << projectionMatrix.size()  << endl;
 
+
+    // Find center of camera
+    cv::Mat Q = projectionMatrix.colRange(0, 3);
+    std::cout << "Q:" << Q << endl;
+    std::cout << Q.size()  << endl;
+
+    cv::Mat invQ = Q.inv();
+    std::cout << "invQ:" << invQ << endl;
+    std::cout << invQ.size()  << endl;
+
+    cv::Mat invQnegative = -1.f * invQ;
+    std::cout << "invQnegative:" << invQnegative << endl;
+
+    cv::Mat m4 = projectionMatrix.col(3);
+    std::cout << "m4:" << m4 << endl;
+
+    cv::Mat cameraCenter = invQnegative * m4;
+    std::cout << "cameraCenter:" << cameraCenter << endl;
+
+
     cv::Mat cv3dpts, cv2dpts;
     cv::eigen2cv(pts3d, cv3dpts);
     cv::eigen2cv(pts2d, cv2dpts);
@@ -362,6 +382,7 @@ int main() {
 
     double residualSVD = cv::norm(projected2dSVD, transposed2D);
     std::cout << "residualSVD:" << residualSVD << endl;
+
 
     compare();
 
